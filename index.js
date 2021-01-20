@@ -26,7 +26,7 @@ class ServerlessAmplifyPlugin {
           const credentials = new this.serverless.providers.aws.sdk.SharedIniFileCredentials({ profile: this.provider.getProfile() })
           const amplifyClient = new this.serverless.providers.aws.sdk.Amplify({
             region: this.provider.getRegion(),
-            credentials
+            credentials,
           })
           this.amplifyClient = amplifyClient
 
@@ -49,7 +49,7 @@ class ServerlessAmplifyPlugin {
             })
             this.amplifyDeploymentJobId = jobId
             fs.writeFileSync(SERVERLESS_AMPLIFY_PLUGIN_META_FILE_PATH, JSON.stringify({
-              amplifyDeploymentJobId: jobId
+              amplifyDeploymentJobId: jobId,
             }))
           }
         }
@@ -60,7 +60,7 @@ class ServerlessAmplifyPlugin {
       'before:aws:deploy:deploy:updateStack': () => this.amplifyOptions.isManual && this.isExistingStack && this.deployWeb(),
       // Deploy after stack update for new stacks
       'after:aws:deploy:deploy:updateStack': () => this.amplifyOptions.isManual && !this.isExistingStack && this.deployWeb(),
-      'after:rollback:initialize': () => this.amplifyOptions.isManual && this.rollbackAmplify()
+      'after:rollback:initialize': () => this.amplifyOptions.isManual && this.rollbackAmplify(),
     }
     // this.commands = {
     //   deploy: {
@@ -71,8 +71,8 @@ class ServerlessAmplifyPlugin {
       amplify: {
         resolver: amplifyVariableResolver,
         isDisabledAtPrepopulation: true,
-        serviceName: 'serverless-amplify..'
-      }
+        serviceName: 'serverless-amplify..',
+      },
     }
   }
 
@@ -85,7 +85,7 @@ class ServerlessAmplifyPlugin {
     const {
       artifactBaseDirectory = 'dist',
       artifactFiles = ['**/*'],
-      preBuildWorkingDirectory = '.'
+      preBuildWorkingDirectory = '.',
     } = buildSpecValues
     const preBuildCommands = getPreBuildCommands(preBuildWorkingDirectory)
 
@@ -96,6 +96,7 @@ class ServerlessAmplifyPlugin {
       accessToken = `{{resolve:secretsmanager:${accessTokenSecretName}:SecretString:${accessTokenSecretKey}}}`,
       branch = 'master',
       isManual = false,
+      redirect404PagesToRoot = true,
       enableAutoBuild = !isManual,
       domainName,
       redirectNakedToWww = false,
@@ -128,6 +129,7 @@ frontend:
       accessToken,
       branch,
       isManual,
+      redirect404PagesToRoot,
       domainName,
       enableAutoBuild,
       redirectNakedToWww,
@@ -136,7 +138,7 @@ frontend:
       buildSpec,
       artifactBaseDirectory,
       preBuildWorkingDirectory,
-      buildCommandEnvVars
+      buildCommandEnvVars,
     }
   }
 
@@ -145,57 +147,56 @@ frontend:
       const envVars = {}
       const { buildCommandEnvVars } = this.amplifyOptions
       const allowedOutputs = this.outputs
-        .filter(output => buildCommandEnvVars.allow.includes(output.OutputKey))
+        .filter((output) => buildCommandEnvVars.allow.includes(output.OutputKey))
 
-      allowedOutputs.forEach(output => {
+      allowedOutputs.forEach((output) => {
         envVars[`${buildCommandEnvVars.prefix}${output.OutputKey}`] = output.OutputValue
       })
 
       const command = 'npm run build'
-      let args = command.split(/\s+/);
-      const cmd = args[0];
-      args = args.slice(1);
+      let args = command.split(/\s+/)
+      const cmd = args[0]
+      args = args.slice(1)
       const baseDirectory = path.join(this.serverless.config.servicePath, this.amplifyOptions.preBuildWorkingDirectory)
       const execution = spawn(cmd, args, {
         cwd: baseDirectory,
         env: {
           ...process.env,
-          ...envVars
+          ...envVars,
         },
-        stdio: 'inherit'
+        stdio: 'inherit',
       })
       execution.on('exit', (code) => {
         if (code === 0) {
           const zipSpinner = ora()
           zipSpinner.start(`Zipping to ${ZIP_FILE_PATH}...`)
-          const output = fs.createWriteStream(ZIP_FILE_PATH);
+          const output = fs.createWriteStream(ZIP_FILE_PATH)
           const buildDirectory = this.amplifyOptions.artifactBaseDirectory
-          const archive = archiver('zip');
+          const archive = archiver('zip')
           output.on('close', () => {
             zipSpinner.succeed('UI zip created!')
-            resolve(ZIP_FILE_PATH);
-          });
+            resolve(ZIP_FILE_PATH)
+          })
 
           archive.on('error', (err) => {
             zipSpinner.fail(err)
-            reject(err);
-          });
-          archive.pipe(output);
-          archive.directory(buildDirectory, false);
-          archive.finalize();
+            reject(err)
+          })
+          archive.pipe(output)
+          archive.directory(buildDirectory, false)
+          archive.finalize()
         } else {
-          reject(code);
+          reject(code)
         }
-      });
-    });
+      })
+    })
   }
 
   async describeStack({ isPackageStep }) {
     const describeStackSpinner = ora()
     const stackName = util.format('%s-%s',
       this.serverless.service.getServiceName(),
-      this.provider.getStage()
-    )
+      this.provider.getStage())
     describeStackSpinner.start('Getting stack outputs...')
     let stacks
     try {
@@ -204,7 +205,7 @@ frontend:
         'describeStacks',
         { StackName: stackName },
         this.provider.getStage(),
-        this.provider.getRegion()
+        this.provider.getRegion(),
       )
     } catch (error) {
       if (isPackageStep) {
@@ -218,14 +219,10 @@ frontend:
     const { Outputs } = stack
     this.outputs = Outputs
     const amplifyDefualtDomainOutputKey = getAmplifyDefaultDomainOutputKey(this.namePascalCase)
-    const amplifyDefualtDomainOutput = Outputs.find(output => output.OutputKey === amplifyDefualtDomainOutputKey)
+    const amplifyDefualtDomainOutput = Outputs.find((output) => output.OutputKey === amplifyDefualtDomainOutputKey)
 
     if (!amplifyDefualtDomainOutput) {
-      if (isPackageStep) {
-        describeStackSpinner.succeed(`Couldn't get stack output ${amplifyDefualtDomainOutputKey}. It might not yet exist.`)
-      } else {
-        describeStackSpinner.succeed(`Couldn't get stack ${amplifyDefualtDomainOutputKey}`)
-      }
+      describeStackSpinner.succeed(`Couldn't find ${amplifyDefualtDomainOutputKey} Output`)
       return
     }
 
@@ -276,6 +273,7 @@ frontend:
       accessToken,
       branch,
       isManual,
+      redirect404PagesToRoot,
       domainName,
       enableAutoBuild,
       redirectNakedToWww,
@@ -289,6 +287,7 @@ frontend:
       Outputs,
       name,
       isManual,
+      redirect404PagesToRoot,
       isExistingStack: this.isExistingStack,
       amplifyDeploymentJobId: this.amplifyDeploymentJobId,
       repository,
@@ -303,7 +302,7 @@ frontend:
         namePascalCase,
         branch,
         enableAutoBuild,
-        stage
+        stage,
       })
     }
 
@@ -313,7 +312,7 @@ frontend:
         Outputs,
         redirectNakedToWww,
         namePascalCase,
-        domainName
+        domainName,
       })
     }
   }
@@ -380,13 +379,13 @@ async function cancelAllPendingJob(appId, branchName, amplifyClient) {
   const params = {
     appId,
     branchName,
-  };
-  const { jobSummaries } = await amplifyClient.listJobs(params).promise();
+  }
+  const { jobSummaries } = await amplifyClient.listJobs(params).promise()
   for (const jobSummary of jobSummaries) {
-    const { jobId, status } = jobSummary;
+    const { jobId, status } = jobSummary
     if (status === 'PENDING' || status === 'RUNNING') {
-      const job = { ...params, jobId };
-      await amplifyClient.stopJob(job).promise();
+      const job = { ...params, jobId }
+      await amplifyClient.stopJob(job).promise()
     }
   }
 }
@@ -394,49 +393,49 @@ async function cancelAllPendingJob(appId, branchName, amplifyClient) {
 function waitJobToSucceed(job, amplifyClient) {
   return new Promise(async (resolve, reject) => {
     const timeout = setTimeout(() => {
-      console.log('Job Timeout before succeeded');
-      reject();
-    }, 1000 * 60 * 10);
-    let processing = true;
+      console.log('Job Timeout before succeeded')
+      reject()
+    }, 1000 * 60 * 10)
+    let processing = true
     try {
       while (processing) {
-        const getJobResult = await amplifyClient.getJob(job).promise();
-        const jobSummary = getJobResult.job.summary;
+        const getJobResult = await amplifyClient.getJob(job).promise()
+        const jobSummary = getJobResult.job.summary
         if (jobSummary.status === 'FAILED') {
-          console.log(`Job failed.${JSON.stringify(jobSummary)}`);
-          clearTimeout(timeout);
-          processing = false;
-          resolve();
+          console.log(`Job failed.${JSON.stringify(jobSummary)}`)
+          clearTimeout(timeout)
+          processing = false
+          resolve()
         }
         if (jobSummary.status === 'SUCCEED') {
-          clearTimeout(timeout);
-          processing = false;
-          resolve();
+          clearTimeout(timeout)
+          processing = false
+          resolve()
         }
-        await sleep(1000 * 3);
+        await sleep(1000 * 3)
       }
     } catch (err) {
-      processing = false;
-      reject(err);
+      processing = false
+      reject(err)
     }
-  });
+  })
 }
 
 function sleep(ms) {
   return new Promise((resolve, reject) => {
     try {
-      setTimeout(resolve, ms);
+      setTimeout(resolve, ms)
     } catch (err) {
-      reject(err);
+      reject(err)
     }
-  });
+  })
 }
 
 async function httpPutFile(filePath, url) {
   await put({
     body: fs.readFileSync(filePath),
     url,
-  });
+  })
 }
 
 function getAmplifyDefaultDomainOutputKey(namePascalCase) {
@@ -451,6 +450,7 @@ function addBaseResourcesAndOutputs({
   Resources,
   name,
   isManual,
+  redirect404PagesToRoot,
   isExistingStack,
   amplifyDeploymentJobId,
   repository,
@@ -463,22 +463,31 @@ function addBaseResourcesAndOutputs({
     Type: 'AWS::Amplify::App',
     Properties: {
       Name: name,
-      BuildSpec: buildSpec
-    }
+      BuildSpec: buildSpec,
+    },
   }
+
+  if (redirect404PagesToRoot) {
+    Resources[`${namePascalCase}AmplifyApp`].Properties.CustomRules = [{
+      Source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|ttf|json|map)$)([^.]+$)/>',
+      Target: '/',
+      Status: 200
+    }]
+  }
+
   if (!isManual) {
     Resources[`${namePascalCase}AmplifyApp`].Properties.Repository = repository
     Resources[`${namePascalCase}AmplifyApp`].Properties.AccessToken = accessToken
   } else if (isExistingStack && amplifyDeploymentJobId) {
     Outputs[getAmplifyDeploymentJobIdOutputKey(namePascalCase)] = {
-      "Value": amplifyDeploymentJobId
+      Value: amplifyDeploymentJobId,
     }
   }
 
   Outputs[getAmplifyDefaultDomainOutputKey(namePascalCase)] = {
-    "Value": {
-      "Fn::Sub": `\${${namePascalCase}AmplifyBranch.BranchName}.\${${namePascalCase}AmplifyApp.DefaultDomain}`
-    }
+    Value: {
+      'Fn::Sub': `\${${namePascalCase}AmplifyBranch.BranchName}.\${${namePascalCase}AmplifyApp.DefaultDomain}`,
+    },
   }
 }
 
@@ -487,7 +496,7 @@ function addBranch({
   namePascalCase,
   branch,
   enableAutoBuild,
-  stage
+  stage,
 }) {
   Resources[`${namePascalCase}AmplifyBranch`] = {
     Type: 'AWS::Amplify::Branch',
@@ -495,8 +504,8 @@ function addBranch({
       AppId: { 'Fn::GetAtt': [`${namePascalCase}AmplifyApp`, 'AppId'] },
       BranchName: branch,
       EnableAutoBuild: enableAutoBuild,
-      Stage: stage
-    }
+      Stage: stage,
+    },
   }
 }
 
@@ -505,14 +514,13 @@ function addDomainName({
   Outputs,
   redirectNakedToWww,
   namePascalCase,
-  domainName
+  domainName,
 }) {
-
   if (redirectNakedToWww) {
     Resources[`${namePascalCase}AmplifyApp`].Properties.CustomRules = {
       Source: `https://${domainName}`,
       Target: `https://www.${domainName}`,
-      Status: "302"
+      Status: '302',
     }
   }
 
@@ -524,19 +532,18 @@ function addDomainName({
       SubDomainSettings: [
         {
           Prefix: '',
-          BranchName: { 'Fn::GetAtt': [`${namePascalCase}AmplifyBranch`, 'BranchName'] }
-        }
-      ]
-    }
+          BranchName: { 'Fn::GetAtt': [`${namePascalCase}AmplifyBranch`, 'BranchName'] },
+        },
+      ],
+    },
   }
 
   Outputs[`${namePascalCase}AmplifyBranchUrl`] = {
-    "Value": {
-      "Fn::Sub": `\${${namePascalCase}AmplifyBranch.BranchName}.\${${namePascalCase}AmplifyDomain.DomainName}`
-    }
+    Value: {
+      'Fn::Sub': `\${${namePascalCase}AmplifyBranch.BranchName}.\${${namePascalCase}AmplifyDomain.DomainName}`,
+    },
   }
 }
-
 
 function amplifyVariableResolver(src) {
   return src.slice('amplify:'.length)
@@ -544,7 +551,7 @@ function amplifyVariableResolver(src) {
 
 function getArtifactFilesYaml(artifactFiles) {
   return artifactFiles
-    .map(artifactFile => `
+    .map((artifactFile) => `
       - '${artifactFile}'`)
     .join('')
 }
@@ -553,11 +560,11 @@ function getPreBuildCommands(preBuildWorkingDirectory) {
   const cdWorkingDirectoryCommand = preBuildWorkingDirectory && preBuildWorkingDirectory !== '.' ? `cd ${preBuildWorkingDirectory}` : null
   const commands = [
     cdWorkingDirectoryCommand,
-    'npm ci'
+    'npm ci',
   ]
   return commands
-    .filter(command => command)
-    .map(command => `
+    .filter((command) => command)
+    .map((command) => `
         - ${command}`)
     .join('')
 }
