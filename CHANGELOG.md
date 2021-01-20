@@ -1,3 +1,16 @@
+# [1.7.0](https://github.com/brettstack/serverless-amplify-plugin/compare/v1.6.2...v1.7.0) (2021-01-20)
+
+
+### Bug Fixes
+
+* error on audit-level critical ([e5229c5](https://github.com/brettstack/serverless-amplify-plugin/commit/e5229c560e06c1f6abd0bc7dc61b0922c53f00f6))
+* strip non-alphanumeric characters from service name ([caeb0ef](https://github.com/brettstack/serverless-amplify-plugin/commit/caeb0efd8bd14c324076dec697c1e1469a78bf1e))
+
+
+### Features
+
+* add redirect404PagesToRoot ([8694463](https://github.com/brettstack/serverless-amplify-plugin/commit/869446380c0396b4715996bcf9e5a7a2308adf1c))
+
 ## [1.6.2](https://github.com/wizeline/serverless-amplify-plugin/compare/v1.6.1...v1.6.2) (2020-05-07)
 
 
