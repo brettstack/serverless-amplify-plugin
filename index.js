@@ -20,7 +20,7 @@ class ServerlessAmplifyPlugin {
       'before:aws:common:validate:validate': async () => {
         this.provider = this.serverless.getProvider('aws')
         this.setAmplifyOptions()
-        this.namePascalCase = pascalCase(this.amplifyOptions.name)
+        this.namePascalCase = pascalCase(this.amplifyOptions.name).replace(/[^0-9a-z]/gi, '')
 
         if (this.amplifyOptions.isManual) {
           const credentials = new this.serverless.providers.aws.sdk.SharedIniFileCredentials({ profile: this.provider.getProfile() })
@@ -219,6 +219,16 @@ frontend:
     this.outputs = Outputs
     const amplifyDefualtDomainOutputKey = getAmplifyDefaultDomainOutputKey(this.namePascalCase)
     const amplifyDefualtDomainOutput = Outputs.find(output => output.OutputKey === amplifyDefualtDomainOutputKey)
+
+    if (!amplifyDefualtDomainOutput) {
+      if (isPackageStep) {
+        describeStackSpinner.succeed(`Couldn't get stack output ${amplifyDefualtDomainOutputKey}. It might not yet exist.`)
+      } else {
+        describeStackSpinner.succeed(`Couldn't get stack ${amplifyDefualtDomainOutputKey}`)
+      }
+      return
+    }
+
     const amplifyDefualtDomainParts = amplifyDefualtDomainOutput.OutputValue.split('.')
     const amplifyAppId = amplifyDefualtDomainParts[1]
 

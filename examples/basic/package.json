@@ -33,7 +33,7 @@
     ]
   },
   "devDependencies": {
-    "@wizeline/serverless-amplify-plugin": "file:../..",
+    "@brettstack/serverless-amplify-plugin": "file:../..",
     "serverless": "^1.67.3"
   }
 }
