@@ -86,7 +86,12 @@ frontend:
         "Name": "my-service",
         "Repository": serverless.service.custom.amplify.repository,
         "AccessToken": '{{resolve:secretsmanager:AmplifyGithub:SecretString:accessToken}}',
-        "BuildSpec": defaultBuildSpec
+        "BuildSpec": defaultBuildSpec,
+        "CustomRules": [{
+          Source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|ttf|json|map)$)([^.]+$)/>',
+          Target: '/',
+          Status: 200
+        }]
       }
     })
 
@@ -162,7 +167,12 @@ artifacts:
         "Name": serverless.service.custom.amplify.name,
         "Repository": serverless.service.custom.amplify.repository,
         "AccessToken": '{{resolve:secretsmanager:MySecret:SecretString:personalAccessToken}}',
-        "BuildSpec": serverless.service.custom.amplify.buildSpec
+        "BuildSpec": serverless.service.custom.amplify.buildSpec,
+        "CustomRules": [{
+          Source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|ttf|json|map)$)([^.]+$)/>',
+          Target: '/',
+          Status: 200
+        }]
       }
     })
 
